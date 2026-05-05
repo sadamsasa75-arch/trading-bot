@@ -4,7 +4,7 @@ import time
 import requests
 
 TOKEN = "8353164328:AAE53LhEMpoOc97T6HBMk3kycBc6fWmODRw"
-CHAT_ID = "YOUR_CHAT_ID"
+CHAT_ID = "1955453309"
 
 symbols = ["EURUSD=X", "GBPUSD=X", "USDJPY=X"]
 
