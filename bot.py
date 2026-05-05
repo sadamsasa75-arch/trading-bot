@@ -3,7 +3,7 @@ import pandas as pd
 import time
 import requests
 
-TOKEN = "8353164328:AAE53LhEMpoOc97T6HBMk3kycBc6fWmODRw"
+TOKEN "8644114176:AAHAxRyqHmpNZXZefm-z4LOsalx6dnrlPu4"
 CHAT_ID = "1955453309"
 
 symbols = ["EURUSD=X", "GBPUSD=X", "USDJPY=X"]
