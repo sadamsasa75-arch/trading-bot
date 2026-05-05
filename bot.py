@@ -1,76 +1,30 @@
-import yfinance as yf
-import pandas as pd
-import time
-import requests
+import os, asyncio, yfinance as yf, pandas as pd, pytz, ta
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-TOKEN "8644114176:AAHAxRyqHmpNZXZefm-z4LOsalx6dnrlPu4"
-CHAT_ID = "1955453309"
+TOKEN = os.getenv("TOKEN")
+CHAT_ID = int(os.getenv("CHAT_ID"))
 
-symbols = ["EURUSD=X", "GBPUSD=X", "USDJPY=X"]
+def get_signal():
+    df = yf.download("BTC-USD", period="7d", interval="1h")
+    c = df['Close']; rsi = ta.momentum.RSIIndicator(c).rsi().iloc[-1]
+    bb = ta.volatility.BollingerBands(c); p = c.iloc[-1]
+    if p < bb.bollinger_lband().iloc[-1] and rsi < 30: return f"شراء 🟢 {p:.0f}"
+    if p > bb.bollinger_hband().iloc[-1] and rsi > 70: return f"بيع 🔴 {p:.0f}"
 
-def send_message(text):
-    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    requests.post(url, data={"chat_id": CHAT_ID, "text": text})
+async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("شغال ✅")
 
-def get_data(symbol):
-    return yf.download(symbol, period="1d", interval="1m")
+async def job(app):
+    s = get_signal()
+    if s: await app.bot.send_message(CHAT_ID, s)
 
-def indicators(df):
-    # Bollinger Bands (20,2)
-    df['ma20'] = df['Close'].rolling(20).mean()
-    df['std'] = df['Close'].rolling(20).std()
-    df['upper'] = df['ma20'] + 2 * df['std']
-    df['lower'] = df['ma20'] - 2 * df['std']
+async def main():
+    app = ApplicationBuilder().token(TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    sch = AsyncIOScheduler(timezone=pytz.timezone('Asia/Riyadh'))
+    sch.add_job(job, 'interval', hours=1, args=[app]); sch.start()
+    print("✅ شغال"); await app.run_polling()
 
-    # RSI (2)
-    delta = df['Close'].diff()
-    gain = delta.clip(lower=0).rolling(2).mean()
-    loss = -delta.clip(upper=0).rolling(2).mean()
-    rs = gain / loss
-    df['rsi'] = 100 - (100 / (1 + rs))
-
-    # MA50 (فلتر الترند)
-    df['ma50'] = df['Close'].rolling(50).mean()
-
-    return df
-
-def signal(df):
-    last = df.iloc[-1]
-
-    # CALL
-    if (last['Close'] < last['lower'] and
-        last['rsi'] < 10 and
-        last['Close'] > last['ma50']):
-        return "📈 CALL"
-
-    # PUT
-    if (last['Close'] > last['upper'] and
-        last['rsi'] > 90 and
-        last['Close'] < last['ma50']):
-        return "📉 PUT"
-
-    return None
-
-def run():
-    print("Bot running...")
-
-    while True:
-        for sym in symbols:
-            try:
-                df = get_data(sym)
-                df = indicators(df)
-
-                sig = signal(df)
-
-                if sig:
-                    msg = f"🔥 {sym} → {sig}"
-                    print(msg)
-                    send_message(msg)
-
-            except Exception as e:
-                print("Error:", e)
-
-        time.sleep(60)
-
-if __name__ == "__main__":
-    run()
+if __name__ == '__main__': asyncio.run(main())
